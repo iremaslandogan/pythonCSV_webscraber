@@ -9,16 +9,19 @@ import difflib
 import pandas as pd
 import multiprocessing
 import scraper
+import ast
 
-def process(titleOrIsbns,function_name, ilerleme):
+def process(titleOrIsbns,function_name, queue):
     for i, titleOrIsbn in enumerate(titleOrIsbns):        
         my_function = getattr(scraper, function_name)
         data = my_function(titleOrIsbn["value"])
-        ilerleme.put((titleOrIsbn["index"],titleOrIsbn["value"], data))
-        
+        queue.put((function_name,titleOrIsbn["index"],titleOrIsbn["value"], data))
+
+#Bu fonksiyon verilen aralıkta ve verilen seçime göre aranacak değerleri getiren fonksiyon
 def getData(datas, rowName):       
     dataArray = []
     for index, data in datas.iterrows():
+        #Bu kısımda herhangi boş bir değer varsa listeye alır.
         if data.isnull().values.any():
             if str(data[rowName]) != "nan":
                 dataArray.append({"index":index, "value":data[rowName]})    
@@ -26,6 +29,7 @@ def getData(datas, rowName):
             pass
     return dataArray
 
+#Stringlerin benzerliğini hesaplayan fonksiyon bu şekilde 1 kaç harf hatasından eşleşmayen verileri doğru kabul eder.
 def stringSimilar(str1,str2):
     matcher = difflib.SequenceMatcher(None, str1, str2)
     similarity_ratio = matcher.ratio()
@@ -33,28 +37,56 @@ def stringSimilar(str1,str2):
         return True
     else:
         return False
+
+#scraper.py dosyamdaki fonksiyon isimlerini alan fonksiyon ilerde farklı bir site eklenirse 
+#app.py dosyasında hiç bir değişiklik yapmadan datanın kaça bölünmesi gerektiği ve kaç fonksiyon çalıştırması gerektiği veren fonsiyon
+
+def scraperFunctions():
+    with open("scraper.py") as f:
+        source = f.read()
+
+    module = ast.parse(source)
+    function_names = [node.name for node in module.body if isinstance(node, ast.FunctionDef)]
+    
+    return function_names
     
 def dataProcessing(datas,data,value):
-    totalDataCount = len(data)
-    yarim_nokta = len(data) // 2 
+    totalDataCount = len(data) 
+    scraper = scraperFunctions()
+    writeData=0
     
-    #sonuclar = multiprocessing.Queue()    
-    ilerleme = multiprocessing.Queue()
-    ilerleme_listesi = []    
+    parts = []
+    start = 0
+    number_of_divisions = len(scraper)
+    for i in range(number_of_divisions):
+        finish = start + len(data[i::number_of_divisions])
+        parts.append(data[start:finish])
+        start = finish
     
-    islem1 = multiprocessing.Process(target=process, args=(data[:yarim_nokta],"search_idefix_by_title_or_isbn", ilerleme))
+    
+    queue = multiprocessing.Queue()
+    queue_list = []  
+    
+    for index, part in  enumerate(parts):
+        newprocess = multiprocessing.Process(target=process, args=(part,scraper[index], queue))
+        queue_list.append(newprocess)
+        newprocess.start()
+      
+    """    
+    islem1 = multiprocessing.Process(target=process, args=(split_data[1],"search_idefix_by_title_or_isbn", ilerleme))
     ilerleme_listesi.append(islem1)
-    islem2 = multiprocessing.Process(target=process, args=(data[yarim_nokta:],"search_dr_by_title_or_isbn", ilerleme))
+    islem2 = multiprocessing.Process(target=process, args=(split_data[2],"search_dr_by_title_or_isbn", ilerleme))
     ilerleme_listesi.append(islem2)
     
     islem1.start()
     islem2.start()   
-
+    """
     for i in range(len(data)):
-        index,dataValue,result = ilerleme.get()
+        function_name,index,dataValue,result = queue.get()
         totalDataCount=totalDataCount-1
-        print("Kalan arama sayısı: ",totalDataCount)
-        #print(f"Index {index} processed, result: {result}")
+        print("Number of remaining searches: ",totalDataCount)      
+        print("Number of Writing Data: ",writeData)
+        #print(function_name) datanın döndüğü fonksiyonun adını yazdırma.
         if(result != None):
             if(value == "title"):
                 dataValue = datas.iloc[index,1]
@@ -64,31 +96,32 @@ def dataProcessing(datas,data,value):
                 dataValue = datas.iloc[index,3]
                 stringControl = datas.iloc[index,3] == str(result[value])
             if stringControl == True:
-                datas.loc[index] = result                    
+                datas.loc[index] = result
+                writeData=writeData+1                    
         else:
-            print("Bu",dataValue,"için sonuç getirmemiştir")
+            print("No search results found:",dataValue)
         
-    islem1.join()
-    islem2.join()    
-
+    newprocess.join()
+    #islem2.join()    
+    
 if __name__ == "__main__":
     
     start = input("Please enter initial index: ")
     stop = input("Please enter the ending index: ")
-    secim = input("Please make your selection:\n1 - Title\n2 - ISBN\n")
+    select = input("Please make your selection:\n1 - Title\n2 - ISBN\n")
     
-    if secim == "1":
-        secim ="title"
-    elif secim == "2":      
-        secim ="isbn13"
+    if select == "1":
+        select ="title"
+    elif select == "2":      
+        select ="isbn13"
     else:
-        print("Geçersiz bir seçim yaptınız!")
+        print("You have made an invalid choice!")
     
     df = pd.read_csv('books.csv', delimiter=';', dtype=str)
     datas = df.iloc[int(start):int(stop)]   
-    data = getData(datas,secim)
-    #print(data)
-    dataProcessing(df, data, secim)
+    data = getData(datas,select)
+    #Güncelemiş değerler csv dosyasına kayıt edilir.
+    dataProcessing(df, data, select)
     df.to_csv('books.csv',sep=';', index=False)
     
     

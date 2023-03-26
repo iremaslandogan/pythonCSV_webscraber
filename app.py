@@ -84,8 +84,7 @@ def dataProcessing(datas,data,value):
     for i in range(len(data)):
         function_name,index,dataValue,result = queue.get()
         totalDataCount=totalDataCount-1
-        print("Number of remaining searches: ",totalDataCount)      
-        print("Number of Writing Data: ",writeData)
+        
         #print(function_name) datanın döndüğü fonksiyonun adını yazdırma.
         if(result != None):
             if(value == "title"):
@@ -100,6 +99,8 @@ def dataProcessing(datas,data,value):
                 writeData=writeData+1                    
         else:
             print("No search results found:",dataValue)
+        print("Number of remaining searches: ",totalDataCount)      
+        print("Number of Writing Data: ",writeData)
         
     newprocess.join()
     #islem2.join()    

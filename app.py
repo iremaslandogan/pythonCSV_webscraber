@@ -119,6 +119,7 @@ if __name__ == "__main__":
         print("You have made an invalid choice!")
     
     df = pd.read_csv('books.csv', delimiter=';', dtype=str)
+    df['page_count'] = pd.Series(dtype=str)
     datas = df.iloc[int(start):int(stop)]   
     data = getData(datas,select)
     #Güncelemiş değerler csv dosyasına kayıt edilir.

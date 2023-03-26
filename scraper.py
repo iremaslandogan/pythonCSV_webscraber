@@ -18,15 +18,17 @@ def search_idefix_by_title_or_isbn(titleOrIsbn):
         book_page_soup = BeautifulSoup(book_page_response.content, "html.parser")
         
         # Kitap adı
-        book_title =  book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Kitap Adı:").find_next_sibling("a").text
+        book_title =  book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Kitap Adı:").find_next_sibling("a").text.strip()
         # Yazar adı
-        book_author =  book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Yazar: ").find_next_sibling("span").find("a").text    
+        book_author =  book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Yazar: ").find_next_sibling("span").find("a").text.strip()    
         # Fiyat
         book_price = book_page_soup.find("div", class_="current-price").text.replace("TL","").strip()
+        #Sayfa sayısı
+        page_count = book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Sayfa Sayısı:").find_next_sibling("a").text.strip() 
         # ISBN
-        book_isbn13 = book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Barkod:").find_next_sibling("a").text
+        book_isbn13 = book_page_soup.find("div", {"class": "product-info-list"}).find("span", text="Barkod:").find_next_sibling("a").text.strip()
     
-        data = {"authors": book_author,"title": book_title, "price": book_price, "isbn13": book_isbn13}
+        data = {"authors": book_author,"title": book_title, "price": book_price,"page_count":page_count, "isbn13": book_isbn13}
         return data
     except:
         return None  
@@ -49,11 +51,12 @@ def search_dr_by_title_or_isbn(titleOrIsbn):
         book_author =  book_page_soup.find("div", {"class": "product-property"}).find("strong", text=" Yazar").find_next_sibling("span").text.strip()    
         # Fiyat
         book_price = book_page_soup.find("div", class_="salePrice").find("span").text.replace("TL","").strip()
+        #Sayfa sayısı
+        page_count = book_page_soup.find("div", {"class": "product-property"}).find("strong", text=" Sayfa Sayısı ").find_next_sibling("span").text.strip()
         # ISBN
         book_isbn13 = book_page_soup.find("div", {"class": "product-property"}).find("strong", text=" Barkod").find_next_sibling("span").text.strip()
         
-        data = {"authors": book_author,"title": book_title, "price": book_price, "isbn13": book_isbn13}
+        data = {"authors": book_author,"title": book_title, "price": book_price,"page_count":page_count, "isbn13": book_isbn13}
         return data                      
     except:
         return None
-    
